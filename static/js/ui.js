@@ -241,28 +241,6 @@ export const cloudArt = (cls = "") =>
     <path d="M28 52a18 18 0 0 1 2-36 24 24 0 0 1 44-6 20 20 0 0 1 22 18 12 12 0 0 1-2 24z" fill="#fff" stroke="#cfe3f3" stroke-width="3" stroke-linejoin="round"/>
   </svg>`);
 
-/** 首頁插圖：太陽、雲、小山丘、書本小屋。 */
-export const heroArt = (cls = "") =>
-  raw(`<svg class="${cls}" viewBox="0 0 230 120" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
-    <circle cx="190" cy="30" r="17" fill="#ffc83d" stroke="#f4a300" stroke-width="2.5"/>
-    <g stroke="#ffb703" stroke-width="4" stroke-linecap="round"><path d="M190 3v6M190 51v6M163 30h6M211 30h6M171 11l4 4M205 45l4 4M171 49l4-4M205 15l4-4"/></g>
-    <path d="M40 40a10 10 0 0 1 1-20 14 14 0 0 1 26-3 11 11 0 0 1 12 10 7 7 0 0 1-1 13z" fill="#fff" stroke="#cfe3f3" stroke-width="2.5"/>
-    <path d="M0 120V92c30-22 70-22 100 0s70 18 130-6v34z" fill="#9bd77a"/>
-    <path d="M0 120v-14c50-16 100-10 150 0s60 4 80-2v16z" fill="#6cc04a"/>
-    <g transform="translate(116 62)">
-      <path d="M0 14L22 0l22 14v26H0z" fill="#ff9f68" stroke="#3b2f25" stroke-width="2.4" stroke-linejoin="round"/>
-      <rect x="15" y="22" width="14" height="18" rx="3" fill="#fff4d6" stroke="#3b2f25" stroke-width="2.2"/>
-      <path d="M-4 16L22 -2l26 18" fill="none" stroke="#e85d75" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-    </g>
-    <g transform="translate(60 82)">
-      <rect x="0" y="6" width="9" height="22" rx="2" fill="#7fb8ec" stroke="#3b2f25" stroke-width="2"/>
-      <rect x="10" y="2" width="9" height="26" rx="2" fill="#ffd76a" stroke="#3b2f25" stroke-width="2"/>
-      <rect x="20" y="8" width="9" height="20" rx="2" fill="#f28aa8" stroke="#3b2f25" stroke-width="2"/>
-    </g>
-    <circle cx="30" cy="100" r="3" fill="#fff"/><circle cx="30" cy="100" r="1.4" fill="#ffc83d"/>
-    <circle cx="200" cy="96" r="3" fill="#fff"/><circle cx="200" cy="96" r="1.4" fill="#ff8fab"/>
-  </svg>`);
-
 /** 登入頁下方的草地與小花。 */
 export const meadowArt = () =>
   raw(`<svg viewBox="0 0 1200 220" preserveAspectRatio="none" aria-hidden="true">

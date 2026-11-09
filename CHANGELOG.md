@@ -10,6 +10,15 @@
 
 ## [未發佈]
 
+## [1.1.1] - 2026-11-09
+
+換上新的程式圖示與首頁插圖。資料庫結構沒有變（仍是版本 1），升級方式與 1.1.0 相同：關閉系統、解壓縮新版、把舊的 `bin` 複製過去。
+
+### 變更
+
+- 新的程式圖示（樹屋）：exe、右下角工具列都換成新圖示。
+- 首頁問候橫幅右側改用新的樹屋插圖。
+
 ## [1.1.0] - 2026-11-09
 
 系統改成在背景執行，用右下角工具列圖示操作；並會提醒管理員有新版本。
@@ -47,6 +56,7 @@
 
 - 資料庫結構版本 1。用更早的開發版建立的資料，開啟時會自動升級。
 
-[未發佈]: https://github.com/sepal1111/school-library/compare/v1.1.0...HEAD
+[未發佈]: https://github.com/sepal1111/school-library/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/sepal1111/school-library/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/sepal1111/school-library/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/sepal1111/school-library/releases/tag/v1.0.0

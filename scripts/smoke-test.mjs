@@ -145,7 +145,7 @@ try {
   }
 
   await check("首頁與前端檔案", async () => {
-    for (const u of ["/", "/js/app.js", "/vendor/zxing.min.js", "/vendor/JsBarcode.all.min.js", "/fonts/jf-openhuninn-2.1.woff2"]) {
+    for (const u of ["/", "/js/app.js", "/img/logo.png", "/vendor/zxing.min.js", "/vendor/JsBarcode.all.min.js", "/fonts/jf-openhuninn-2.1.woff2"]) {
       const res = await api("GET", u);
       assert(res.status === 200, `${u} → ${res.status}`);
       await res.arrayBuffer();

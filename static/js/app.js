@@ -1,6 +1,6 @@
 // 前端進入點：登入狀態、路由（#/路徑）、導覽列、首頁與共用頁面。
 import { GET, POST, onAuthProblem } from "./api.js";
-import { $, busy, cloudArt, cover, dueText, esc, heroArt, html, icon, mascot, meadowArt, raw, sunArt, toastErr, toastOk } from "./ui.js";
+import { $, busy, cloudArt, cover, dueText, esc, html, icon, mascot, meadowArt, raw, sunArt, toastErr, toastOk } from "./ui.js";
 import * as circ from "./pages/circulation.js";
 import * as books from "./pages/books.js";
 import * as admin from "./pages/admin.js";
@@ -268,7 +268,7 @@ async function home(el) {
           <span class="chip">每人最多 ${d.maxLoansPerUser} 本</span>
         </div>
       </div>
-      ${heroArt("hero-art")}
+      <img class="hero-logo" src="/img/logo.png" alt="" width="308" height="340">
     </section>
     <div class="big-actions">
       <a class="big-action borrow" href="#/borrow"><span class="ba-icon">${icon("borrow")}</span><span class="ba-text"><b>借書</b><small>掃描書上的條碼借出</small></span></a>

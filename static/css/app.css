@@ -214,10 +214,10 @@ h3 { font-size: 1rem; }
   display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px;
   background: rgba(255,255,255,.85); border: 2px solid #d6eaf8; font-size: .88rem; font-weight: 600; color: var(--text-2);
 }
-.hero-art { width: 230px; height: 120px; flex: none; margin: -10px -10px -26px 0; }
+.hero-logo { height: 150px; width: auto; flex: none; margin: -10px -4px -12px 0; object-fit: contain; filter: drop-shadow(0 4px 6px rgba(59, 47, 37, .12)); }
 @media (max-width: 600px) {
-  .hero { padding: 18px; flex-direction: column; align-items: stretch; }
-  .hero-art { width: 100%; height: 86px; margin: 0 0 -24px; order: -1; }
+  .hero { padding: 18px; }
+  .hero-logo { height: 96px; margin: -6px -6px -8px 0; }
   .hero h1 { font-size: 1.35rem; }
 }
 

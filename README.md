@@ -35,7 +35,7 @@
 ## 給使用者：開始使用
 
 1. 在 zip 上按右鍵 →「解壓縮全部」，放到固定的資料夾，例如 `D:\圖書借閱系統`。不要直接在 zip 裡執行。
-2. 雙擊 `圖書借閱系統.exe`。系統在背景啟動並自動開啟瀏覽器，不會出現視窗，只在右下角工具列顯示一個橘色書本圖示。
+2. 雙擊 `圖書借閱系統.exe`。系統在背景啟動並自動開啟瀏覽器，不會出現視窗，只在右下角工具列顯示一個樹屋圖示。
    - 第一次執行時，Windows 可能顯示「Windows 已保護您的電腦」。這是因為程式沒有數位簽章，請按「其他資訊 → 仍要執行」。
    - 按一下圖示會開啟系統；按右鍵有「開啟圖書借閱系統」「手機／平板連線」「開啟程式資料夾」「結束服務」。
    - 看不到圖示時，請按工具列右邊的「^」。
@@ -135,7 +135,7 @@ release/
 
 - 版本號只改 `package.json`，exe、記錄檔、備份檔都會跟著變。
 - 冒煙測試會把可攜版複製到暫存資料夾、從其他工作目錄啟動 exe，測試不開視窗、記錄檔、工具列圖示、首頁、HTTPS、登入、Excel 匯出、備份、OCR 與新版提示，結束後確認圖示也跟著消失，並清掉暫存資料。
-- exe 圖示是 `assets/icon.ico`。建置時先把圖示、版本資訊與「Windows GUI 子系統」（雙擊不開命令提示字元視窗）寫進 Node 基底檔（放在 `.pkg-cache/`），再交給 pkg 打包。
+- exe 與工具列圖示是 `assets/icon.ico`，由 `assets/icon.png` 用 `npm run icon` 產生（換圖示時替換 png、執行這個指令後再建置，建議 256×256 以上的正方形）。建置時先把圖示、版本資訊與「Windows GUI 子系統」（雙擊不開命令提示字元視窗）寫進 Node 基底檔（放在 `.pkg-cache/`），再交給 pkg 打包。
 - 可攜版沒有視窗：訊息寫到 `bin\logs\server.log`；右下角圖示是另一個小程式 `system\school-library-tray.exe`（原始碼 `tray/Tray.cs`，建置時用 Windows 內建的 .NET Framework C# 編譯器編譯），和伺服器用標準輸入／輸出溝通，伺服器結束時圖示自動消失。
 - 開發模式（`npm run dev`）不顯示工具列圖示，訊息照舊印在終端機。
 
@@ -198,7 +198,7 @@ school-library/
 │  ├─ css/app.css      樣式
 │  ├─ fonts/           jf 粉圓體
 │  └─ vendor/          ZXing、JsBarcode（自動複製，不進版控）
-├─ assets/           exe 圖示 icon.ico、OCR 英文語言檔 ocr/eng.traineddata
+├─ assets/           圖示原檔 icon.png／logo.png、icon.ico、OCR 英文語言檔 ocr/eng.traineddata
 ├─ tray/             右下角工具列圖示（Tray.cs）
 ├─ scripts/          建置（build-exe.mjs）、冒煙測試（smoke-test.mjs）、Release 說明（release-notes.mjs）
 ├─ .github/          GitHub Actions、Issue 範本
