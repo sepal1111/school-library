@@ -1,0 +1,22 @@
+name: 功能建議
+description: 建議新功能或改善現有功能
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 遇到的情況
+      description: 現在使用時遇到什麼不方便的地方？
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: 建議的做法
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: 補充說明
+      description: 學校規模、使用情境、截圖等

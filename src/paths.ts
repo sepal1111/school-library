@@ -19,6 +19,16 @@ export function getStaticDir(): string {
   return path.join(getAppDir(), "static");
 }
 
+/**
+ * OCR 檔案位置：
+ * - 打包時：exe 旁的 system/ocr/（worker.cjs、node_modules/tesseract.js-core、eng.traineddata）
+ * - 開發時：語言檔在 assets/ocr/，worker 直接用 node_modules 裡的 tesseract.js
+ */
+export function getOcrDir(): string {
+  if (isPackaged()) return path.join(getAppDir(), "system", "ocr");
+  return path.join(getAppDir(), "assets", "ocr");
+}
+
 function ensureDir(dir: string): string {
   fs.mkdirSync(dir, { recursive: true });
   return dir;
@@ -29,4 +39,4 @@ export const getCoversDir = () => ensureDir(path.join(getBinDir(), "covers"));
 export const getBackupsDir = () => ensureDir(path.join(getBinDir(), "backups"));
 export const getCertsDir = () => ensureDir(path.join(getBinDir(), "certs"));
 export const getTmpDir = () => ensureDir(path.join(getBinDir(), "tmp"));
-export const getDbPath = () => process.env.SCHOOL_LIB_DB_PATH || process.env.KYPS_LIB_DB_PATH || path.join(getBinDir(), "library.db");
+export const getDbPath = () => process.env.SCHOOL_LIB_DB_PATH || path.join(getBinDir(), "library.db");

@@ -1,0 +1,56 @@
+name: 問題回報
+description: 系統出現錯誤或不符合預期的行為
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感謝回報！安全性問題請不要在這裡回報，請依照 SECURITY.md 私下回報。
+        請不要貼上密碼、老師姓名或其他個人資料。
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: 黑色視窗第一行會顯示版本，例如 v1.0.0
+      placeholder: v1.0.0
+    validations:
+      required: true
+  - type: dropdown
+    id: device
+    attributes:
+      label: 發生問題的裝置
+      multiple: true
+      options:
+        - 主機電腦（執行 exe 的那台）
+        - 其他電腦
+        - Android 手機／平板
+        - iPhone／iPad
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: 瀏覽器
+      placeholder: 例如 Chrome 130、Safari、Edge
+  - type: textarea
+    id: steps
+    attributes:
+      label: 重現步驟
+      placeholder: |
+        1. 到「借書」頁面
+        2. 掃描登錄號 K0001
+        3. 出現錯誤…
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 預期的結果與實際的結果
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: 黑色視窗的錯誤訊息
+      description: 如果黑色視窗有出現錯誤，請複製貼上
+      render: text

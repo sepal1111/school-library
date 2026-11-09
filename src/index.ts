@@ -24,9 +24,9 @@ import { setServerInfo } from "./serverInfo";
 import { getHttpsOptions } from "./tls";
 import { getLanIps } from "./utils/network";
 import { nowText } from "./utils/time";
+import { VERSION } from "./version";
 
-const VERSION = "1.0.0";
-const BASE_PORT = Number(process.env.SCHOOL_LIB_PORT || process.env.KYPS_LIB_PORT) || 8300;
+const BASE_PORT = Number(process.env.SCHOOL_LIB_PORT) || 8300;
 
 function buildApp(): express.Express {
   const app = express();
@@ -77,7 +77,7 @@ async function findPorts(): Promise<[number, number]> {
 }
 
 function openBrowser(url: string): void {
-  if (process.env.SCHOOL_LIB_NO_BROWSER || process.env.KYPS_LIB_NO_BROWSER) return;
+  if (process.env.SCHOOL_LIB_NO_BROWSER) return;
   const cmd = process.platform === "win32" ? `start "" "${url}"` : process.platform === "darwin" ? `open "${url}"` : `xdg-open "${url}"`;
   exec(cmd, () => undefined);
 }

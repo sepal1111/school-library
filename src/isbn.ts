@@ -1,5 +1,4 @@
 // ISBN 格式處理與線上書目查詢（國圖 NBINet → Google Books → Open Library）。
-// 做法參考 WWW/books 專案的 book_service.py：台灣出版品以國圖 NBINet 為第一優先。
 // 查詢由主機端伺服器發出，前端不直接連外部服務。
 import { createHash } from "node:crypto";
 

@@ -1,0 +1,100 @@
+# 建置與發佈
+#
+# - push 到 main、PR、手動執行：型別檢查 → 建置可攜版 → 冒煙測試 → 上傳 zip 供下載測試
+# - push 標籤 v*（例如 v1.0.0）：以上全部，再建立 GitHub Release「草稿」並附上 zip 與 SHA256SUMS.txt
+#   草稿要自己下載測過，再到 GitHub 網頁按「Publish release」才會公開。
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      # pkg 的 Node 基底檔約 50 MB，快取起來不用每次重新下載
+      - uses: actions/cache@v6
+        with:
+          path: ~/.pkg-cache
+          key: pkg-node24-win-x64-${{ hashFiles('package-lock.json') }}
+          restore-keys: pkg-node24-win-x64-
+
+      - name: 安裝相依套件
+        run: npm ci
+
+      - name: 檢查標籤與版本號、CHANGELOG
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: node scripts/release-notes.mjs --check-tag "${GITHUB_REF_NAME}" > release-notes.md
+
+      - name: 建置可攜版
+        run: node scripts/build-exe.mjs
+
+      - name: 冒煙測試
+        run: node scripts/smoke-test.mjs
+
+      - name: 上傳建置結果
+        uses: actions/upload-artifact@v7
+        with:
+          name: school-library-win-x64
+          path: |
+            release/*.zip
+            release/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: 上傳 release notes
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-notes
+          path: release-notes.md
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+
+      - name: 建立或更新 Release 草稿
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          files=(dist/school-library-win-x64/*.zip dist/school-library-win-x64/SHA256SUMS.txt)
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            # 重新執行時：更新檔案與說明，但不改變草稿／已發佈狀態
+            gh release upload "$TAG" "${files[@]}" --clobber
+            gh release edit "$TAG" --notes-file dist/release-notes/release-notes.md
+          else
+            gh release create "$TAG" "${files[@]}" \
+              --draft \
+              --title "$TAG" \
+              --notes-file dist/release-notes/release-notes.md \
+              --verify-tag
+          fi

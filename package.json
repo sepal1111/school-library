@@ -2,6 +2,12 @@
   "name": "school-library",
   "version": "1.0.0",
   "description": "幼兒園圖書借閱系統（區域網路版）",
+  "license": "MIT",
+  "author": "sepal",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sepal1111/school-library.git"
+  },
   "private": true,
   "main": "dist/index.js",
   "scripts": {
@@ -10,7 +16,9 @@
     "start": "node dist/index.js",
     "vendor": "node scripts/copy-vendor.mjs",
     "postinstall": "node scripts/copy-vendor.mjs",
-    "build:exe:win": "node scripts/build-exe.mjs"
+    "build:exe:win": "node scripts/build-exe.mjs",
+    "smoke": "node scripts/smoke-test.mjs",
+    "release:win": "node scripts/build-exe.mjs && node scripts/smoke-test.mjs"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
@@ -35,6 +43,7 @@
     "@zxing/library": "^0.21.3",
     "esbuild": "^0.25.12",
     "jsbarcode": "^3.11.6",
+    "resedit": "^3.1.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }

@@ -3,10 +3,11 @@ import AdmZip from "adm-zip";
 import fs from "fs";
 import path from "path";
 import { DatabaseSync } from "node:sqlite";
-import { db, replaceDbFile, setSetting } from "./db";
+import { NEWER_DB_MESSAGE, SCHEMA_VERSION, db, readSchemaVersion, replaceDbFile, setSetting } from "./db";
 import { bad } from "./http";
 import { getBackupsDir, getCoversDir, getTmpDir } from "./paths";
 import { nowText, stamp } from "./utils/time";
+import { VERSION } from "./version";
 
 const KEEP_AUTO = 10;
 const NAME_RE = /^library-(auto|manual|before-restore)-\d{8}-\d{6}\.zip$/;
@@ -23,7 +24,7 @@ export function createBackup(kind: "auto" | "manual" | "before-restore"): string
     zip.addLocalFile(tmpDb, "", "library.db");
     const coversDir = getCoversDir();
     for (const f of fs.readdirSync(coversDir)) zip.addLocalFile(path.join(coversDir, f), "covers");
-    zip.addFile("backup-info.json", Buffer.from(JSON.stringify({ app: "school-library", createdAt: nowText(), kind }, null, 2)));
+    zip.addFile("backup-info.json", Buffer.from(JSON.stringify({ app: "school-library", version: VERSION, schemaVersion: SCHEMA_VERSION, createdAt: nowText(), kind }, null, 2)));
     // 同一秒內重複備份時，往後順延一秒命名，避免覆蓋
     let name = "";
     for (let k = 0; !name || fs.existsSync(path.join(getBackupsDir(), name)); k++) {
@@ -81,6 +82,8 @@ export function restoreFromZip(zipPath: string): void {
           throw bad("備份檔的資料格式不正確");
         }
       }
+      // 較新版本產生的備份不能還原到舊版程式；較舊的備份還原後會在開啟時自動升級
+      if (readSchemaVersion(probe) > SCHEMA_VERSION) throw bad(`${NEWER_DB_MESSAGE}，無法在這個版本還原`);
     } finally {
       probe.close();
     }

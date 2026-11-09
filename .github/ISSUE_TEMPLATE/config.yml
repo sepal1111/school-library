@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 安全性問題
+    url: https://github.com/sepal1111/school-library/security/advisories/new
+    about: 請私下回報，不要開公開的 Issue

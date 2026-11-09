@@ -165,18 +165,54 @@ export interface InitResult {
   createdAdmin: boolean;
 }
 
+/**
+ * 資料庫結構升級。MIGRATIONS[i] 把結構版本從 i 升到 i + 1，版本號記在 PRAGMA user_version。
+ * 新增升級時只能往陣列尾端加，已發佈的項目不要修改。
+ */
+const MIGRATIONS: Array<() => void> = [
+  // 0 → 1：books 新增 classification_no、author_no（v1.0.0 之前的開發版資料庫沒有這兩欄）
+  () => {
+    const bookCols = all<{ name: string }>("PRAGMA table_info(books)").map((c) => c.name);
+    if (!bookCols.includes("classification_no")) {
+      db().exec("ALTER TABLE books ADD COLUMN classification_no TEXT NOT NULL DEFAULT ''");
+    }
+    if (!bookCols.includes("author_no")) {
+      db().exec("ALTER TABLE books ADD COLUMN author_no TEXT NOT NULL DEFAULT ''");
+    }
+  },
+];
+
+/** 這一版程式使用的資料庫結構版本。 */
+export const SCHEMA_VERSION = MIGRATIONS.length;
+
+export function readSchemaVersion(d: DatabaseSync): number {
+  return Number((d.prepare("PRAGMA user_version").get() as { user_version: number }).user_version);
+}
+
+export const NEWER_DB_MESSAGE = "這份資料是由較新版本的系統建立的，請改用新版程式開啟";
+
+/** 資料比程式新時不能開啟，避免舊版程式改壞新版資料。 */
+function assertNotNewer(): void {
+  const v = readSchemaVersion(db());
+  if (v > SCHEMA_VERSION) {
+    throw new Error(`${NEWER_DB_MESSAGE}（資料版本 ${v}，本程式支援到 ${SCHEMA_VERSION}）`);
+  }
+}
+
+function migrate(): void {
+  for (let v = readSchemaVersion(db()); v < SCHEMA_VERSION; v++) {
+    tx(() => {
+      MIGRATIONS[v]();
+      db().exec(`PRAGMA user_version = ${v + 1}`);
+    });
+  }
+}
+
 /** 建立資料表與預設資料：「純行政」班級，以及第一次啟動時的管理員帳號 admin／admin。 */
 function bootstrap(): InitResult {
+  assertNotNewer();
   db().exec(SCHEMA);
-
-  // 資料表欄位升級（新增 classification_no、author_no）
-  const bookCols = all<{ name: string }>("PRAGMA table_info(books)").map((c) => c.name);
-  if (!bookCols.includes("classification_no")) {
-    db().exec("ALTER TABLE books ADD COLUMN classification_no TEXT NOT NULL DEFAULT ''");
-  }
-  if (!bookCols.includes("author_no")) {
-    db().exec("ALTER TABLE books ADD COLUMN author_no TEXT NOT NULL DEFAULT ''");
-  }
+  migrate();
 
   if (!get("SELECT id FROM classes WHERE is_admin_group = 1")) {
     run("INSERT INTO classes (name, sort_order, is_admin_group) VALUES (?, 999, 1)", ADMIN_GROUP_NAME);
@@ -204,7 +240,13 @@ export function openDb(): InitResult {
   const dbPath = getDbPath();
   current = new DatabaseSync(dbPath);
   current.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;");
-  return bootstrap();
+  try {
+    return bootstrap();
+  } catch (err) {
+    current.close();
+    current = null;
+    throw err;
+  }
 }
 
 export function closeDb(): void {

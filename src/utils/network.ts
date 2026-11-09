@@ -42,7 +42,7 @@ export function getLanIps(): string[] {
     }
   }
 
-  // 排序優先度：真實實體網卡 IP（如校園網路 163.19.138.42） > 私人區域網路 IP > 虛擬/Tailscale IP
+  // 排序優先度：真實實體網卡 IP（例如學校配發的公有 IP） > 私人區域網路 IP > 虛擬/Tailscale IP
   return [...realPhysical, ...privateLan, ...virtualIps];
 }
 
