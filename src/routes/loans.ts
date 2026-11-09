@@ -4,6 +4,7 @@ import { all, get, getSettings, run, tx } from "../db";
 import { HttpError, bad, h, intParam, notFound, str } from "../http";
 import { cleanIsbn, looksLikeIsbn, normalizeIsbn } from "../isbn";
 import { recognizeAlphanumeric } from "../utils/ocr";
+import { getUpdateInfo } from "../updateCheck";
 import { addDays, diffDays, nowText, todayText } from "../utils/time";
 import { STATUS_LABEL } from "./books";
 
@@ -405,6 +406,8 @@ router.get(
       out.overdue = queryActiveLoans({ overdueOnly: true });
       out.lastBackupAt = s.lastBackupAt;
       out.backupDaysAgo = s.lastBackupAt ? diffDays(s.lastBackupAt.slice(0, 10), todayText()) : null;
+      const u = getUpdateInfo();
+      if (u.enabled && u.hasUpdate) out.update = { current: u.current, latest: u.latest, url: u.url };
     }
     res.json(out);
   })

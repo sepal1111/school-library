@@ -4,6 +4,7 @@ import { Router } from "express";
 import { destroyUserSessions, requireAdmin, validatePassword } from "../auth";
 import { DEFAULT_SETTINGS, type SettingKey, all, get, getSettings, run, setSetting, tx } from "../db";
 import { bad, h, intParam, notFound, str } from "../http";
+import { checkForUpdate, getUpdateInfo } from "../updateCheck";
 import { nowText } from "../utils/time";
 
 const router = Router();
@@ -171,6 +172,7 @@ const EDITABLE: Partial<Record<SettingKey, Rule>> = {
   labelGapXMm: { min: 0, max: 20 },
   labelGapYMm: { min: 0, max: 20 },
   labelShowSchool: {},
+  updateCheck: {},
 };
 
 router.put(
@@ -201,6 +203,8 @@ router.put(
         }
       }
     });
+    // 剛開啟自動檢查新版本時，馬上查一次
+    if (body.updateCheck === true && !getUpdateInfo().checkedAt) void checkForUpdate();
     res.json(getSettings());
   })
 );

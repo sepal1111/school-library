@@ -11,7 +11,7 @@ body:
     id: version
     attributes:
       label: 版本
-      description: 黑色視窗第一行會顯示版本，例如 v1.0.0
+      description: 滑鼠停在右下角工具列圖示上會顯示版本，例如 v1.0.0
       placeholder: v1.0.0
     validations:
       required: true
@@ -51,6 +51,6 @@ body:
   - type: textarea
     id: log
     attributes:
-      label: 黑色視窗的錯誤訊息
-      description: 如果黑色視窗有出現錯誤，請複製貼上
+      label: 錯誤訊息或記錄檔
+      description: 如果有跳出錯誤訊息，請複製貼上；也可以附上程式資料夾裡 bin/logs/server.log 的最後幾十行（請先刪掉老師姓名等個人資料）
       render: text

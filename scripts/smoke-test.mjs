@@ -7,6 +7,7 @@
 import { spawn, execFileSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
+import http from "node:http";
 import https from "node:https";
 import os from "node:os";
 import path from "node:path";
@@ -27,10 +28,18 @@ if (!fs.existsSync(path.join(srcDir, exeName))) {
 const work = fs.mkdtempSync(path.join(os.tmpdir(), "school-library-smoke-"));
 fs.cpSync(srcDir, work, { recursive: true, filter: (p) => path.relative(srcDir, p).split(path.sep)[0] !== "bin" });
 
+// 假的 GitHub Releases API：回傳一個比較新的版本，測試「新版提示」而不連外網
+const fakeRelease = http.createServer((_req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  res.end(JSON.stringify({ tag_name: "v99.0.0", published_at: "2099-01-01T00:00:00Z", draft: false, prerelease: false }));
+});
+await new Promise((r) => fakeRelease.listen(0, "127.0.0.1", r));
+const fakeReleaseUrl = `http://127.0.0.1:${fakeRelease.address().port}/`;
+
 const basePort = 18300 + 2 * Math.floor(Math.random() * 200);
 const child = spawn(path.join(work, exeName), [], {
   cwd: os.tmpdir(), // 刻意不在 exe 資料夾啟動，確認不依賴工作目錄
-  env: { ...process.env, SCHOOL_LIB_NO_BROWSER: "1", SCHOOL_LIB_PORT: String(basePort) },
+  env: { ...process.env, SCHOOL_LIB_NO_BROWSER: "1", SCHOOL_LIB_PORT: String(basePort), SCHOOL_LIB_UPDATE_URL: fakeReleaseUrl },
   stdio: ["ignore", "pipe", "pipe"],
 });
 let log = "";
@@ -63,6 +72,14 @@ function httpsGet(url) {
     https.get(url, { rejectUnauthorized: false, timeout: 5000 }, (res) => (res.resume(), resolve(res.statusCode))).on("error", reject);
   });
 }
+/** 這次測試啟動的工具列圖示程式（只看暫存資料夾裡的那一個）。 */
+function trayPids() {
+  const trayPath = path.join(work, "system", "school-library-tray.exe").replace(/'/g, "''");
+  const ps = `Get-CimInstance Win32_Process -Filter "Name='school-library-tray.exe'" | Where-Object { $_.ExecutablePath -eq '${trayPath}' } | ForEach-Object { $_.ProcessId }`;
+  const out = execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", ps], { encoding: "utf-8" });
+  return out.split(/\s+/).filter(Boolean);
+}
+
 const assert = (cond, msg) => {
   if (!cond) throw new Error(msg);
 };
@@ -95,12 +112,30 @@ try {
       if (Date.now() > deadline) throw new Error(`60 秒內沒有啟動\n${log}`);
       await new Promise((r) => setTimeout(r, 300));
     }
-    assert(log.includes(`v${version}`), `主控台沒有顯示版本 v${version}`);
+    assert(log.includes(`v${version}`), `輸出沒有顯示版本 v${version}`);
     return base;
   });
   if (!base) throw new Error("無法啟動，略過其餘測試");
 
+  await check("不開命令提示字元視窗、寫入記錄檔", () => {
+    const buf = fs.readFileSync(path.join(work, exeName));
+    const subsystem = buf.readUInt16LE(buf.readUInt32LE(0x3c) + 24 + 68);
+    assert(subsystem === 2, `exe 的 Subsystem 是 ${subsystem}（應為 2，Windows GUI）`);
+    const logFile = path.join(work, "bin", "logs", "server.log");
+    assert(fs.existsSync(logFile), "沒有 bin/logs/server.log");
+    const text = fs.readFileSync(logFile, "utf-8");
+    assert(text.includes(`v${version}`) && text.includes("本機使用"), "記錄檔內容不完整");
+  });
+
   if (process.platform === "win32") {
+    await check("工具列圖示", async () => {
+      const deadline = Date.now() + 10000;
+      while (!log.includes("已在右下角工具列顯示圖示") && Date.now() < deadline) await new Promise((r) => setTimeout(r, 200));
+      assert(log.includes("已在右下角工具列顯示圖示"), "沒有啟動工具列圖示");
+      await new Promise((r) => setTimeout(r, 1000));
+      assert(trayPids().length === 1, `工具列圖示程式數量：${trayPids().length}`);
+    });
+
     await check("exe 版本資訊", () => {
       const ps = `[Console]::OutputEncoding = [Text.Encoding]::UTF8; (Get-Item -LiteralPath '${path.join(work, exeName).replace(/'/g, "''")}').VersionInfo | ForEach-Object { $_.ProductVersion + '|' + $_.ProductName }`;
       const out = execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", ps], { encoding: "utf-8" }).trim();
@@ -157,6 +192,16 @@ try {
     return JSON.stringify(r.rawText.trim());
   });
 
+  await check("新版提示", async () => {
+    const u = await json("POST", "/api/system/update/check");
+    assert(u.current === version && u.latest === "99.0.0" && u.hasUpdate, `檢查結果：${JSON.stringify(u)}`);
+    assert(u.url === "https://github.com/sepal1111/school-library/releases/tag/v99.0.0", `下載網址：${u.url}`);
+    const d = await json("GET", "/api/dashboard");
+    assert(d.update?.latest === "99.0.0", "首頁沒有新版提示");
+    await json("PUT", "/api/settings", { updateCheck: false });
+    assert(!("update" in (await json("GET", "/api/dashboard"))), "關閉後首頁仍有新版提示");
+  });
+
   await check("執行中仍正常", async () => {
     assert(!exited, `exe 已結束\n${log}`);
     await json("GET", "/api/auth/me");
@@ -164,7 +209,18 @@ try {
 } finally {
   // Windows 上 child.kill() 就是 TerminateProcess
   child.kill();
+  fakeRelease.close();
   await new Promise((r) => (exited ? r() : child.once("exit", r)));
+  if (process.platform === "win32" && base) {
+    // 伺服器被強制結束時，圖示也要自己消失，不能留在工具列
+    await check("伺服器結束後圖示跟著結束", async () => {
+      const deadline = Date.now() + 5000;
+      while (trayPids().length && Date.now() < deadline) await new Promise((r) => setTimeout(r, 300));
+      const left = trayPids();
+      if (left.length) execFileSync("taskkill.exe", ["/F", ...left.flatMap((p) => ["/PID", p])]);
+      assert(!left.length, "工具列圖示程式沒有結束");
+    });
+  }
   for (let i = 0; i < 10; i++) {
     try {
       fs.rmSync(work, { recursive: true, force: true });

@@ -281,6 +281,9 @@ async function home(el) {
     ${isAdmin() && d.backupDaysAgo !== null && d.backupDaysAgo > 30
       ? html`<div class="alert" style="margin-top:14px">${icon("warn")}<span>已經 ${d.backupDaysAgo} 天沒有備份。</span><a class="btn btn-sm" href="#/admin/backup">前往備份</a></div>`
       : ""}
+    ${isAdmin() && d.update
+      ? html`<div class="alert alert-info" style="margin-top:14px" data-update-alert>${icon("download")}<span>有新版本 v${d.update.latest} 可以下載（目前 v${d.update.current}）。升級前請先備份。</span><a class="btn btn-sm" href="${d.update.url}" target="_blank" rel="noopener">查看新版本</a></div>`
+      : ""}
 
     <div class="card" style="margin-top:14px">
       <div class="card-head"><h2>我借閱中的書（${d.mine.length}）</h2>${overdueMine ? html`<span class="tag tag-danger">${overdueMine} 本逾期</span>` : ""}</div>

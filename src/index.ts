@@ -1,6 +1,8 @@
 // 幼兒園圖書借閱系統 — 伺服器進入點。
-// 啟動流程：開資料庫 → 自動備份 → 找可用埠 → 同時開 HTTP（本機用）與 HTTPS（區域網路手機用）→ 印出 QR Code → 開瀏覽器。
-import { exec } from "child_process";
+// 啟動流程：開資料庫 → 自動備份 → 找可用埠 → 同時開 HTTP（本機用）與 HTTPS（區域網路手機用）→ 開瀏覽器。
+// 可攜版（exe）沒有命令提示字元視窗：在右下角工具列顯示圖示，訊息寫到 bin/logs/server.log。
+// 開發模式（npm run dev）照舊在終端機印出訊息與 QR Code。
+import { exec, spawn } from "child_process";
 import cookieParser from "cookie-parser";
 import express from "express";
 import fs from "fs";
@@ -13,7 +15,7 @@ import { requireLogin } from "./auth";
 import { createBackup } from "./backup";
 import { closeDb, get, openDb } from "./db";
 import { HttpError, errorHandler } from "./http";
-import { getBinDir, getCoversDir, getStaticDir, isPackaged } from "./paths";
+import { getAppDir, getBinDir, getCoversDir, getStaticDir, isPackaged } from "./paths";
 import adminRoutes from "./routes/admin";
 import authRoutes from "./routes/auth";
 import bookRoutes from "./routes/books";
@@ -21,7 +23,10 @@ import loanRoutes from "./routes/loans";
 import reportRoutes from "./routes/reports";
 import systemRoutes, { sendCertHandler } from "./routes/system";
 import { setServerInfo } from "./serverInfo";
+import { getLogFile, setupFileLog } from "./log";
 import { getHttpsOptions } from "./tls";
+import { Tray, isTrayAvailable, showErrorDialog } from "./tray";
+import { setUpdateListener, startUpdateChecks } from "./updateCheck";
 import { getLanIps } from "./utils/network";
 import { nowText } from "./utils/time";
 import { VERSION } from "./version";
@@ -79,8 +84,17 @@ async function findPorts(): Promise<[number, number]> {
 function openBrowser(url: string): void {
   if (process.env.SCHOOL_LIB_NO_BROWSER) return;
   const cmd = process.platform === "win32" ? `start "" "${url}"` : process.platform === "darwin" ? `open "${url}"` : `xdg-open "${url}"`;
-  exec(cmd, () => undefined);
+  // windowsHide：沒有視窗的可攜版呼叫 cmd 時，不要閃出黑色視窗
+  exec(cmd, { windowsHide: true }, () => undefined);
 }
+
+function openFolder(dir: string): void {
+  if (process.platform !== "win32") return;
+  spawn("explorer.exe", [dir], { detached: true, stdio: "ignore" }).unref();
+}
+
+/** 有終端機（開發模式、或在命令提示字元裡執行）時才印 QR Code 等只給人看的內容。 */
+const hasTerminal = Boolean(process.stdout.isTTY);
 
 // ---------- 防止重複啟動：同一份資料只能有一個伺服器在寫 ----------
 
@@ -115,6 +129,7 @@ function probe(url: string): Promise<boolean> {
 }
 
 async function main(): Promise<void> {
+  if (isPackaged()) setupFileLog(path.join(getBinDir(), "logs"));
   console.log(`\n幼兒園圖書借閱系統 v${VERSION}`);
 
   const existing = readRuntime();
@@ -161,8 +176,10 @@ async function main(): Promise<void> {
   console.log(`本機使用：  ${localUrl}`);
   if (lanHttpsUrl) {
     console.log(`手機/平板： ${lanHttpsUrl}`);
-    console.log("（第一次連線會出現憑證警告，選「繼續前往」即可）\n");
-    console.log(await QRCode.toString(lanHttpsUrl, { type: "terminal", small: true }));
+    if (hasTerminal) {
+      console.log("（第一次連線會出現憑證警告，選「繼續前往」即可）\n");
+      console.log(await QRCode.toString(lanHttpsUrl, { type: "terminal", small: true }));
+    }
   } else {
     console.log("找不到區域網路連線，目前只能在這台電腦使用。");
   }
@@ -170,34 +187,69 @@ async function main(): Promise<void> {
     console.log("第一次啟動：已建立管理員帳號 admin，密碼 admin（登入後會要求修改密碼）。");
   }
   console.log("────────────────────────────────────────");
-  console.log("使用期間請不要關閉這個視窗；關閉視窗即結束系統。\n");
-
-  openBrowser(localUrl);
 
   let closing = false;
+  let tray: Tray | null = null;
   const shutdown = () => {
     if (closing) return;
     closing = true;
-    console.log("\n正在關閉系統…");
+    console.log("正在關閉系統…");
     try {
       const rt = readRuntime();
       if (rt?.pid === process.pid) fs.unlinkSync(runtimeFile());
     } catch {
       /* ignore */
     }
+    tray?.stop();
     httpServer.close();
     httpsServer.close();
     closeDb();
-    process.exit(0);
+    console.log("系統已關閉。");
+    // 留一點時間讓工具列圖示收到 exit 指令
+    setTimeout(() => process.exit(0), tray ? 300 : 0);
   };
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
   process.on("SIGHUP", shutdown);
+
+  if (isTrayAvailable()) {
+    const EVENT_LABEL = { open: "開啟系統", phone: "手機／平板連線", folder: "開啟程式資料夾", quit: "結束服務" };
+    tray = new Tray((event) => {
+      console.log(`工具列圖示：${EVENT_LABEL[event]}`);
+      if (event === "open") openBrowser(localUrl);
+      else if (event === "phone") openBrowser(`${localUrl}/#/connect`);
+      else if (event === "folder") openFolder(getAppDir());
+      else if (event === "quit") shutdown();
+    });
+    tray.start();
+    tray.setTooltip(`圖書借閱系統 v${VERSION}：執行中`);
+    tray.notify(
+      "圖書借閱系統已啟動",
+      createdAdmin
+        ? "第一次使用：帳號 admin、密碼 admin。\n要開啟或結束系統，請按右下角工具列的圖示。"
+        : "要開啟或結束系統，請按右下角工具列的圖示。"
+    );
+    setUpdateListener((latest) => tray?.notify("有新版本可以下載", `新版本 v${latest}，請到系統首頁查看。`));
+    console.log("已在右下角工具列顯示圖示。");
+  } else {
+    console.log("使用期間請不要關閉這個視窗；關閉視窗即結束系統。\n");
+  }
+
+  openBrowser(localUrl);
+  startUpdateChecks();
 }
 
 main().catch((err) => {
   console.error("啟動失敗：", err);
-  if (isPackaged()) {
+  if (isTrayAvailable()) {
+    // 沒有視窗可以看錯誤訊息，改用對話框
+    const log = getLogFile();
+    showErrorDialog(
+      "圖書借閱系統無法啟動",
+      `${(err as Error)?.message ?? err}${log ? `\n\n詳細記錄：${log}` : ""}`
+    );
+    setTimeout(() => process.exit(1), 500);
+  } else if (isPackaged() && hasTerminal) {
     console.log("\n按 Enter 關閉視窗…");
     process.stdin.once("data", () => process.exit(1));
   } else {

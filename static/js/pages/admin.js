@@ -189,8 +189,53 @@ export async function settingsPage(el) {
         </div>
         <p class="small muted" data-fit style="margin:10px 0 0"></p>
       </div>
+      <div class="card">
+        <h2 style="margin-bottom:4px">新版本</h2>
+        <p class="small muted" style="margin:0 0 12px">開啟後，系統啟動時會連到 GitHub 查詢最新的版本號（每 12 小時一次），有新版本時在首頁提醒管理員。只查詢版本號，不會傳送任何學校資料。</p>
+        <label class="check full"><input type="checkbox" name="updateCheck" ${s.updateCheck ? "checked" : ""}> 自動檢查新版本</label>
+        <div class="row" style="margin-top:12px;align-items:center;flex-wrap:wrap;gap:10px">
+          <span class="small" data-update-status>讀取中…</span>
+          <button class="btn btn-sm" type="button" data-update-check>${icon("search")}立即檢查</button>
+        </div>
+      </div>
       <div class="row row-end"><button class="btn btn-primary btn-lg" type="submit">${icon("check")}儲存設定</button></div>
     </form>`.toString();
+
+  const statusEl = $("[data-update-status]", el);
+  const showUpdate = (u) => {
+    const parts = [`目前版本 v${u.current}`];
+    if (!u.enabled) parts.push("自動檢查已關閉");
+    else {
+      if (u.hasUpdate) parts.push(`最新版本 v${u.latest}`);
+      else if (u.latest) parts.push("已經是最新版本");
+      if (u.error) parts.push(`上次檢查失敗：${u.error}`);
+      else if (u.checkedAt) parts.push(`檢查時間 ${new Date(u.checkedAt).toLocaleString("zh-TW", { hour12: false })}`);
+      else parts.push("尚未檢查");
+    }
+    statusEl.textContent = parts.join("　·　");
+    const old = statusEl.parentElement.querySelector("a[data-update-link]");
+    if (old) old.remove();
+    if (u.enabled && u.hasUpdate) {
+      const a = document.createElement("a");
+      a.className = "btn btn-sm btn-primary";
+      a.href = u.url;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.dataset.updateLink = "";
+      a.textContent = `下載 v${u.latest}`;
+      statusEl.after(a);
+    }
+  };
+  GET("/system/update").then(showUpdate, () => (statusEl.textContent = ""));
+  $("[data-update-check]", el).addEventListener("click", (e) =>
+    busy(e.currentTarget, async () => {
+      try {
+        showUpdate(await POST("/system/update/check"));
+      } catch (err) {
+        toastErr(err);
+      }
+    })
+  );
 
   const form = $("[data-form]", el);
   const update = () => {
@@ -211,8 +256,10 @@ export async function settingsPage(el) {
     busy(form.querySelector("button[type=submit]"), async () => {
       const body = Object.fromEntries(new FormData(form).entries());
       body.labelShowSchool = form.labelShowSchool.checked;
+      body.updateCheck = form.updateCheck.checked;
       try {
         const saved = await PUT("/settings", body);
+        GET("/system/update").then(showUpdate, () => undefined);
         state.schoolName = saved.schoolName;
         document.getElementById("schoolName").textContent = saved.schoolName ? `${saved.schoolName} ` : "";
         toastOk("設定已儲存");

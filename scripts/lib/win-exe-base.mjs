@@ -18,9 +18,10 @@ const require = createRequire(import.meta.url);
  * @param {string} o.productName 產品名稱（檔案內容→詳細資料）
  * @param {string} o.description 檔案描述
  * @param {string} o.exeName     原始檔名
+ * @param {boolean} [o.gui]      true：不開命令提示字元視窗（Windows GUI 子系統）
  * @returns {Promise<string>}    修改後的基底檔路徑
  */
-export async function prepareWinBase({ root, iconPath, version, productName, description, exeName }) {
+export async function prepareWinBase({ root, iconPath, version, productName, description, exeName, gui = false }) {
   const { need } = require("@yao-pkg/pkg-fetch");
   const fetched = await need({ nodeRange: "node24", platform: "win", arch: "x64" });
 
@@ -61,9 +62,25 @@ export async function prepareWinBase({ root, iconPath, version, productName, des
   vi.outputToResourceEntries(res.entries);
 
   res.outputResource(exe);
+  const buf = Buffer.from(exe.generate());
+  if (gui) setGuiSubsystem(buf);
   const outDir = path.join(root, ".pkg-cache");
   fs.mkdirSync(outDir, { recursive: true });
   const out = path.join(outDir, `node24-win-x64-${path.basename(fetched)}-patched.exe`);
-  fs.writeFileSync(out, Buffer.from(exe.generate()));
+  fs.writeFileSync(out, buf);
   return out;
+}
+
+/**
+ * 把 PE 檔頭的 Subsystem 從 CONSOLE（3）改成 WINDOWS_GUI（2）：
+ * 雙擊執行時不會開出命令提示字元視窗。Node 在沒有主控台時會把 console 輸出丟掉，
+ * 但如果由其他程式用管線（pipe）啟動，標準輸出仍然可以讀到（冒煙測試靠這個）。
+ */
+function setGuiSubsystem(buf) {
+  const peOffset = buf.readUInt32LE(0x3c);
+  if (buf.toString("latin1", peOffset, peOffset + 4) !== "PE\0\0") throw new Error("不是有效的 PE 檔");
+  const subsystemOffset = peOffset + 24 + 68; // PE 簽章 4 + COFF 檔頭 20，Optional Header 內第 68 位元組
+  const current = buf.readUInt16LE(subsystemOffset);
+  if (current !== 3 && current !== 2) throw new Error(`未預期的 Subsystem 值：${current}`);
+  buf.writeUInt16LE(2, subsystemOffset);
 }

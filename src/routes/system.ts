@@ -9,6 +9,7 @@ import { createBackup, isBackupName, listBackups, restoreFromZip } from "../back
 import { bad, h, notFound } from "../http";
 import { getBackupsDir, getTmpDir } from "../paths";
 import { getServerInfo } from "../serverInfo";
+import { checkForUpdate, getUpdateInfo, isUpdateCheckEnabled } from "../updateCheck";
 
 const router = Router();
 const upload = multer({ dest: getTmpDir(), limits: { fileSize: 500 * 1024 * 1024 } });
@@ -58,6 +59,27 @@ router.get(
     const file = path.join(getBackupsDir(), name);
     if (!fs.existsSync(file)) throw notFound("找不到備份檔");
     res.download(file, name);
+  })
+);
+
+// ---------- 新版本檢查 ----------
+
+router.get(
+  "/system/update",
+  requireAdmin,
+  h((_req, res) => {
+    res.json(getUpdateInfo());
+  })
+);
+
+/** 管理員按「立即檢查」。 */
+router.post(
+  "/system/update/check",
+  requireAdmin,
+  h(async (_req, res) => {
+    if (!isUpdateCheckEnabled()) throw bad("已關閉自動檢查新版本，請先在系統設定開啟");
+    await checkForUpdate();
+    res.json(getUpdateInfo());
   })
 );
 

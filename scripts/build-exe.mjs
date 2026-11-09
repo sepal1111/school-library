@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // 建置 Windows 可攜版：
 //   release/圖書借閱系統/
-//     ├─ 圖書借閱系統.exe          （pkg 打包的伺服器，內含 Node 24，使用內建 node:sqlite）
+//     ├─ 圖書借閱系統.exe          （pkg 打包的伺服器，內含 Node 24；不開命令提示字元視窗）
 //     ├─ system/static/             （前端檔案，以一般檔案形式放在 exe 旁）
 //     ├─ system/ocr/                （OCR worker、tesseract.js-core wasm、eng.traineddata）
+//     ├─ system/school-library-tray.exe（右下角工具列圖示，原始碼 tray/Tray.cs）
 //     ├─ 使用說明.txt
 //     ├─ LICENSE.txt                （專案根目錄有 LICENSE 時才會複製）
 //     └─ THIRD_PARTY_NOTICES.txt
@@ -38,10 +39,10 @@ const nm = (...p) => path.join(root, "node_modules", ...p);
 
 console.log(`建置 ${appName} v${version}\n`);
 
-console.log("[1/7] 複製前端程式庫");
+console.log("[1/8] 複製前端程式庫");
 runNode(path.join(root, "scripts", "copy-vendor.mjs"), []);
 
-console.log("[2/7] 型別檢查並用 esbuild 打包成單一檔案");
+console.log("[2/8] 型別檢查並用 esbuild 打包成單一檔案");
 runNode(require.resolve("typescript/bin/tsc"), ["-p", "tsconfig.json", "--noEmit"]);
 // 先打包成一個 CommonJS 檔再交給 pkg：部分套件在 Node 24 下會經由 "module-sync" 匯出條件載入 .mjs，
 // pkg 的虛擬檔案系統處理不了 require(ESM)；esbuild 會改用一般的 CommonJS 進入點，問題就消失了。
@@ -60,7 +61,7 @@ const serverBuild = await esbuild.build({
   logLevel: "warning",
 });
 
-console.log("[3/7] 準備 exe 基底檔（圖示、版本資訊；第一次會下載 Node 24 基底檔，需要網路）");
+console.log("[3/8] 準備 exe 基底檔（圖示、版本資訊；第一次會下載 Node 24 基底檔，需要網路）");
 const basePath = await prepareWinBase({
   root,
   iconPath: path.join(root, "assets", "icon.ico"),
@@ -68,9 +69,10 @@ const basePath = await prepareWinBase({
   productName: "幼兒園圖書借閱系統",
   description: "幼兒園圖書借閱系統",
   exeName,
+  gui: true,
 });
 
-console.log("[4/7] 打包 exe");
+console.log("[4/8] 打包 exe");
 // 保留既有的 bin/ 資料（重新建置時不要把正在使用的資料刪掉）
 fs.mkdirSync(outDir, { recursive: true });
 for (const entry of fs.readdirSync(outDir)) {
@@ -83,7 +85,7 @@ runNode(
   { PKG_NODE_PATH: basePath }
 );
 
-console.log("[5/7] 複製前端檔案與說明");
+console.log("[5/8] 複製前端檔案與說明");
 fs.cpSync(path.join(root, "static"), path.join(outDir, "system", "static"), { recursive: true });
 fs.copyFileSync(path.join(root, "使用說明.txt"), path.join(outDir, "使用說明.txt"));
 if (fs.existsSync(path.join(root, "LICENSE"))) {
@@ -92,7 +94,7 @@ if (fs.existsSync(path.join(root, "LICENSE"))) {
   console.warn("  ⚠ 專案根目錄沒有 LICENSE，輸出不含 LICENSE.txt（公開發佈前必須補上）");
 }
 
-console.log("[6/7] 準備 OCR 檔案（system/ocr/）");
+console.log("[6/8] 準備 OCR 檔案（system/ocr/）");
 // tesseract.js 用 worker_threads 開一個獨立的 worker 檔，這個檔案不能放進 pkg，
 // 所以另外打包成 system/ocr/worker.cjs；它在執行期用 require 載入旁邊 node_modules 裡的 tesseract.js-core（wasm）。
 const ocrDir = path.join(outDir, "system", "ocr");
@@ -116,7 +118,29 @@ for (const f of fs.readdirSync(nm("tesseract.js-core"))) {
 }
 fs.copyFileSync(path.join(root, "assets", "ocr", "eng.traineddata"), path.join(ocrDir, "eng.traineddata"));
 
-console.log("[7/7] 第三方授權聲明" + (makeZip ? "、zip 與 SHA256" : ""));
+console.log("[7/8] 編譯工具列圖示（system/school-library-tray.exe）");
+// 用 Windows 內建 .NET Framework 4 的 C# 編譯器，不需要另外安裝工具
+const csc = path.join(process.env.WINDIR ?? "C:\\Windows", "Microsoft.NET", "Framework64", "v4.0.30319", "csc.exe");
+if (!fs.existsSync(csc)) throw new Error(`找不到 C# 編譯器：${csc}（需要在 Windows 上建置）`);
+const iconPath = path.join(root, "assets", "icon.ico");
+execFileSync(
+  csc,
+  [
+    "-nologo",
+    "-codepage:65001",
+    "-optimize+",
+    "-target:winexe",
+    `-win32icon:${iconPath}`,
+    `-resource:${iconPath},AppIcon.ico`,
+    "-r:System.Windows.Forms.dll",
+    "-r:System.Drawing.dll",
+    `-out:${path.join(outDir, "system", "school-library-tray.exe")}`,
+    path.join(root, "tray", "Tray.cs"),
+  ],
+  { cwd: root, stdio: "inherit" }
+);
+
+console.log("[8/8] 第三方授權聲明" + (makeZip ? "、zip 與 SHA256" : ""));
 const nodeLicense = path.join(path.dirname(process.execPath), "LICENSE");
 const notices = writeNotices({
   packageDirs: [

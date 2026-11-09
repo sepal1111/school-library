@@ -133,6 +133,7 @@ export const DEFAULT_SETTINGS = {
   labelGapXMm: 0,
   labelGapYMm: 0,
   labelShowSchool: true,
+  updateCheck: true,
   lastBackupAt: "",
 };
 export type Settings = typeof DEFAULT_SETTINGS;
